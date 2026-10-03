@@ -1,9 +1,19 @@
-﻿using Cryptography.lab1.Utils;
+﻿using Cryptography.lab1.Des;
 
-// Тест 1: разворот 8 бит, MSB-first, 0-based
-var input = new byte[] { 0xB2, 0xFF };     // 1011 0010 1111 1111
-var pBox = new[] { 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0 };
-var result = BitPermuter.Permute(input, pBox, BitOrder.MsbFirst, BitNumbering.ZeroBased);
+byte[] key = Convert.FromHexString("133457799BBCDFF1");
+byte[] plain = Convert.FromHexString("0123456789ABCDEF");
 
-Console.WriteLine($"Вход:   {Convert.ToString(input[0], 2).PadLeft(8, '0')} {Convert.ToString(input[1], 2).PadLeft(8, '0')}");
-Console.WriteLine($"Выход:  {Convert.ToString(result[0], 2).PadLeft(8, '0')} {Convert.ToString(result[1], 2).PadLeft(8, '0')}");
+var des = new DesCipher();
+des.SetKey(key);
+byte[] cipher = des.Encrypt(plain);
+
+Console.WriteLine($"Открытый:     {Convert.ToHexString(plain)}");
+Console.WriteLine($"Зашифровано:  {Convert.ToHexString(cipher)}");
+Console.WriteLine($"Ожидалось:    85E813540F0AB405");
+Console.WriteLine();
+
+byte[] decrypted = des.Decrypt(cipher);
+Console.WriteLine($"Расшифровано: {Convert.ToHexString(decrypted)}");
+Console.WriteLine($"Ожидалось:    0123456789ABCDEF");
+
+Console.ReadLine();

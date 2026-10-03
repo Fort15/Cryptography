@@ -21,7 +21,7 @@ public static class Padding
                 break;
 
             case PaddingMode.PKCS7:
-                for (int i = 0; i < padLen, i++)
+                for (int i = 0; i < padLen; i++)
                     result[data.Length + i] = (byte)padLen;
                 break;
 
