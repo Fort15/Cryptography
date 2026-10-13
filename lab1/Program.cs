@@ -1,19 +1,21 @@
-﻿using Cryptography.lab1.Des;
+﻿using Cryptography.lab1.Contexts;
+using Cryptography.lab1.Des;
+using System.Text;
 
-byte[] key = Convert.FromHexString("133457799BBCDFF1");
-byte[] plain = Convert.FromHexString("0123456789ABCDEF");
+byte[] key = Encoding.UTF8.GetBytes("12345678");
+byte[] iv = Convert.FromHexString("0011223344556677");
+byte[] plain = Encoding.UTF8.GetBytes("Hello, async!");
 
 var des = new DesCipher();
-des.SetKey(key);
-byte[] cipher = des.Encrypt(plain);
+var ctx = new CipherContext(des, key, CipherMode.CBC, PaddingMode.PKCS7, iv);
 
-Console.WriteLine($"Открытый:     {Convert.ToHexString(plain)}");
-Console.WriteLine($"Зашифровано:  {Convert.ToHexString(cipher)}");
-Console.WriteLine($"Ожидалось:    85E813540F0AB405");
-Console.WriteLine();
+// Асинхронный вызов — не блокирует
+byte[] cipher = await ctx.EncryptAsync(plain);
+Console.WriteLine($"Зашифровано: {Convert.ToHexString(cipher)}");
 
-byte[] decrypted = des.Decrypt(cipher);
-Console.WriteLine($"Расшифровано: {Convert.ToHexString(decrypted)}");
-Console.WriteLine($"Ожидалось:    0123456789ABCDEF");
+// Асинхронная расшифровка
+byte[] decrypted = await ctx.DecryptAsync(cipher);
+Console.WriteLine($"Расшифровано: {Encoding.UTF8.GetString(decrypted)}");
+Console.WriteLine($"Совпадает: {Convert.ToHexString(plain) == Convert.ToHexString(decrypted)}");
 
 Console.ReadLine();
