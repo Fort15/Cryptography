@@ -391,7 +391,7 @@ public class CipherContext
             byte[] msg = ByteUtils.Xor(block, encrypted);
             Buffer.BlockCopy(msg, 0, result, i * blockSize, blockSize);
 
-            prevCipher = encrytped;
+            prevCipher = encrypted;
         }
 
         return result;
