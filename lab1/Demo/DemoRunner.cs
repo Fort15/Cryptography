@@ -2,6 +2,8 @@ using System.Diagnostics;
 using System.Text;
 using Cryptography.lab1.Contexts;
 using Cryptography.lab1.Des;
+using Cryptography.lab1.Deal;
+using Cryptography.lab1.Interfaces;
 
 namespace Cryptography.lab1.Demo;
 
@@ -13,22 +15,29 @@ public class DemoRunner
         CipherMode.CFB, CipherMode.OFB, CipherMode.CTR, CipherMode.RandomDelta
     };
 
-    private readonly byte[] _key = Encoding.UTF8.GetBytes("67526752");
-    private readonly byte[] _iv = Encoding.UTF8.GetBytes("RussiaRF");
+    private readonly byte[] _desKey = Encoding.ASCII.GetBytes("67526752");
+    private readonly byte[] _desIv = Encoding.ASCII.GetBytes("RussiaRF");
+
+    private readonly byte[] _dealKey = Convert.FromHexString("00112233445566778899AABBCCDDEEFF");
+    private readonly byte[] _dealIv = Convert.FromHexString("00112233445566778899AABBCCDDEEFF");
 
     public void RunAll()
     {
         var des = new DesCipher();
+        var deal = new DealCipher();
 
-        Console.WriteLine("=== ƒ≈ÃŒÕ—“–¿÷»ﬂ –¿¡Œ“€ DES ===\n");
+        Console.WriteLine("=== «¿ƒ¿Õ»≈ 5: ƒ≈ÃŒÕ—“–¿÷»ﬂ DES ===\n");
+        DemoRandomBytes(des, _desKey, _desIv, "DES");
+        DemoFiles(des, _desKey, _desIv, "Demo/Files/Des", "DES");
 
-        DemoRandomBytes(des);
-        DemoFiles(des, "Demo/Files");
+        Console.WriteLine("\n\n=== «¿ƒ¿Õ»≈ 7: ƒ≈ÃŒÕ—“–¿÷»ﬂ DEAL ===\n");
+        DemoRandomBytes(deal, _dealKey, _dealIv, "DEAL");
+        DemoFiles(deal, _dealKey, _dealIv, "Demo/Files/Deal", "DEAL");
     }
 
-    private void DemoRandomBytes(DesCipher des)
+    private void DemoRandomBytes(ISymmetricCipher cipher, byte[] key, byte[] iv, string label)
     {
-        Console.WriteLine("--- œÒÂ‚‰ÌÓÒÎÛ˜‡ÈÌ˚Â ·‡ÈÚ˚ ---\n");
+        Console.WriteLine($"--- œÒÂ‚‰ÓÒÎÛ˜‡ÈÌ˚Â ·‡ÈÚ˚ ({label}) ---\n");
 
         var rng = new Random(12345);
         byte[] data = new byte[1024];
@@ -36,16 +45,17 @@ public class DemoRunner
 
         foreach (var mode in AllModes)
         {
-            var ctx = new CipherContext(des, _key, mode, PaddingMode.PKCS7, _iv);
-            TestRoundTrip(ctx, data, $"Random bytes [{mode}]");
+            byte[]? localIv = mode == CipherMode.ECB ? null : iv;
+            var ctx = new CipherContext(cipher, key, mode, PaddingMode.PKCS7, localIv);
+            TestRoundTrip(ctx, data, $" [{mode}]");
         }
 
         Console.WriteLine();
     }
 
-    private void DemoFiles(DesCipher des, string folder)
+    private void DemoFiles(ISymmetricCipher cipher, byte[] key, byte[] iv, string folder, string label)
     {
-        Console.WriteLine("--- ‘‡ÈÎ˚ ---\n");
+        Console.WriteLine($"--- ‘‡ÈÎ˚ ({label}) ---\n");
 
         if (!Directory.Exists(folder))
         {
@@ -59,6 +69,7 @@ public class DemoRunner
             Console.WriteLine("œ‡ÔÍ‡ ÔÛÒÚ‡");
             return;
         }
+
         foreach (var file in files)
         {
             byte[] data = File.ReadAllBytes(file);
@@ -68,8 +79,8 @@ public class DemoRunner
 
             foreach (var mode in AllModes)
             {
-                var ctx = new CipherContext(des, _key, mode, PaddingMode.PKCS7, _iv);
-
+                byte[]? localIv = mode == CipherMode.ECB ? null : iv;
+                var ctx = new CipherContext(cipher, key, mode, PaddingMode.PKCS7, localIv);
                 TestRoundTrip(ctx, data, $" [{mode}]");
             }
 
@@ -79,8 +90,12 @@ public class DemoRunner
 
     private bool TestRoundTrip(CipherContext ctx, byte[] data, string label)
     {
+        var sw = Stopwatch.StartNew();
+
         ctx.Encrypt(data, out byte[] cipher);
         ctx.Decrypt(cipher, out byte[] decrypted);
+
+        sw.Stop();
 
         bool ok = data.Length == decrypted.Length;
         if (ok)
@@ -92,7 +107,7 @@ public class DemoRunner
         }
 
         string status = ok ? "OK" : "FAIL";
-        Console.WriteLine($"{label,-30} {status}");
+        Console.WriteLine($"{label,-30} {status}  ({sw.ElapsedMilliseconds} ms)");
         return ok;
     }
 }
