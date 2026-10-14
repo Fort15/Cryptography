@@ -27,7 +27,7 @@ public class DealKeyExpander : IKeyExpander
             16 => (6, 2),
             24 => (6, 3),
             32 => (8, 4),
-            _ => throw new ArgumentException($"DEAL: неверная длина ключа {key.Length}, допустимо 16, 24, 32 байта", nameof(key))
+            _ => throw new ArgumentException($"DEAL: РЅРµРІРµСЂРЅР°СЏ РґР»РёРЅР° РєР»СЋС‡Р° {key.Length}, РґРѕРїСѓСЃС‚РёРјРѕ 16, 24, 32 Р±Р°Р№С‚Р°", nameof(key))
         };
 
         byte[][] k = new byte[keyBlocksCount][];

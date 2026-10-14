@@ -26,18 +26,18 @@ public class DemoRunner
         var des = new DesCipher();
         var deal = new DealCipher();
 
-        Console.WriteLine("=== «¿ƒ¿Õ»≈ 5: ƒ≈ÃŒÕ—“–¿÷»ﬂ DES ===\n");
+        Console.WriteLine("=== –ó–ê–î–ê–ù–ò–ï 5: –î–ï–ú–û–ù–°–¢–†–ê–¶–ò–Ø DES ===\n");
         DemoRandomBytes(des, _desKey, _desIv, "DES");
         DemoFiles(des, _desKey, _desIv, "Demo/Files/Des", "DES");
 
-        Console.WriteLine("\n\n=== «¿ƒ¿Õ»≈ 7: ƒ≈ÃŒÕ—“–¿÷»ﬂ DEAL ===\n");
+        Console.WriteLine("\n\n=== –ó–ê–î–ê–ù–ò–ï 7: –î–ï–ú–û–ù–°–¢–†–ê–¶–ò–Ø DEAL ===\n");
         DemoRandomBytes(deal, _dealKey, _dealIv, "DEAL");
         DemoFiles(deal, _dealKey, _dealIv, "Demo/Files/Deal", "DEAL");
     }
 
     private void DemoRandomBytes(ISymmetricCipher cipher, byte[] key, byte[] iv, string label)
     {
-        Console.WriteLine($"--- œÒÂ‚‰ÓÒÎÛ˜‡ÈÌ˚Â ·‡ÈÚ˚ ({label}) ---\n");
+        Console.WriteLine($"--- –ü—Å–µ–≤–¥–æ—Å–ª—É—á–∞–π–Ω—ã–µ –±–∞–π—Ç—ã ({label}) ---\n");
 
         var rng = new Random(12345);
         byte[] data = new byte[1024];
@@ -55,18 +55,18 @@ public class DemoRunner
 
     private void DemoFiles(ISymmetricCipher cipher, byte[] key, byte[] iv, string folder, string label)
     {
-        Console.WriteLine($"--- ‘‡ÈÎ˚ ({label}) ---\n");
+        Console.WriteLine($"--- –§–∞–π–ª—ã ({label}) ---\n");
 
         if (!Directory.Exists(folder))
         {
-            Console.WriteLine($"œ‡ÔÍ‡ {folder} ÌÂ Ì‡È‰ÂÌ‡");
+            Console.WriteLine($"–ü–∞–ø–∫–∞ {folder} –Ω–µ –Ω–∞–π–¥–µ–Ω–∞");
             return;
         }
 
         var files = Directory.GetFiles(folder);
         if (files.Length == 0)
         {
-            Console.WriteLine("œ‡ÔÍ‡ ÔÛÒÚ‡");
+            Console.WriteLine("–ü–∞–ø–∫–∞ –ø—É—Å—Ç–∞");
             return;
         }
 
@@ -75,7 +75,7 @@ public class DemoRunner
             byte[] data = File.ReadAllBytes(file);
             string name = Path.GetFileName(file);
 
-            Console.WriteLine($"‘‡ÈÎ {name} ({data.Length} ·‡ÈÚ)");
+            Console.WriteLine($"–§–∞–π–ª {name} ({data.Length} –±–∞–π—Ç)");
 
             foreach (var mode in AllModes)
             {

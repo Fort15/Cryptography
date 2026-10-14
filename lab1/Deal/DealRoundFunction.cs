@@ -17,10 +17,10 @@ public class DealRoundFunction : IRoundFunction
     {
         if (block == null) throw new ArgumentNullException(nameof(block));
         if (block.Length != InputBlockSize)
-            throw new ArgumentException($"DEAL: ожидается блок {InputBlockSize} байт, а не {block.Length}", nameof(block));
+            throw new ArgumentException($"DEAL: РѕР¶РёРґР°РµС‚СЃСЏ Р±Р»РѕРє {InputBlockSize} Р±Р°Р№С‚, Р° РЅРµ {block.Length}", nameof(block));
         if (roundKey == null) throw new ArgumentNullException(nameof(roundKey));
         if (roundKey.Length != RoundKeySize)
-            throw new ArgumentException($"DEAL: ожидается блок {RoundKeySize} байт, а не {roundKey.Length}", nameof(roundKey));
+            throw new ArgumentException($"DEAL: РѕР¶РёРґР°РµС‚СЃСЏ Р±Р»РѕРє {RoundKeySize} Р±Р°Р№С‚, Р° РЅРµ {roundKey.Length}", nameof(roundKey));
 
         ulong keyInt = BinaryPrimitives.ReadUInt64BigEndian(roundKey);
 
