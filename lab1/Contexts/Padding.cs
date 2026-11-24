@@ -43,7 +43,7 @@ public static class Padding
         return result;
     }
 
-    public static byte[] Remove(byte[] data, PaddingMode mode)
+    public static byte[] Remove(byte[] data, int blockSize, PaddingMode mode)
     {
         if (data == null) throw new ArgumentNullException(nameof(data));
         if (data.Length == 0) throw new ArgumentException("Пустая дата");
@@ -56,7 +56,7 @@ public static class Padding
             case PaddingMode.PKCS7:
             case PaddingMode.ANSIX923:
             case PaddingMode.ISO10126:
-                return RemoveByLastByte(data);
+                return RemoveByLastByte(data, blockSize, mode);
 
             default:
                 throw new ArgumentOutOfRangeException($"Неизвестный режим набивки");
@@ -70,10 +70,10 @@ public static class Padding
         return data[..end];
     }
 
-    private static byte[] RemoveByLastByte(byte[] data)
+    private static byte[] RemoveByLastByte(byte[] data, int blockSize, PaddingMode mode)
     {
         int padLen = data[data.Length - 1];
-        if (padLen == 0 | padLen > data.Length) throw new ArgumentException($"Некорректная длина набивки {padLen}");
+        if (padLen < 1 || padLen > blockSize) throw new ArgumentException($"Некорректная длина набивки {padLen}");
         return data[..(data.Length - padLen)];
     }
 }

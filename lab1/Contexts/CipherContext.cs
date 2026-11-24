@@ -11,6 +11,9 @@ public class CipherContext
     private readonly PaddingMode _padding;
     private readonly byte[]? _iv;
     private readonly object[] _extraParams;
+    private byte[]? _state;
+    private byte[]? _statePrevPlain;
+    private long _blocksProcessed;
 
     public CipherContext(ISymmetricCipher cipher, byte[] key, CipherMode mode, PaddingMode padding, byte[]? iv = null, params object[] extraParams)
     {
@@ -29,10 +32,17 @@ public class CipherContext
     }
 
     private static bool RequiresIv(CipherMode mode) => mode != CipherMode.ECB;
+    private void ResetState()
+    {
+        _state = (byte[]?)_iv?.Clone();
+        _statePrevPlain = _iv != null ? new byte[_cipher.BlockSize] : null;
+        _blocksProcessed = 0;
+    }
 
     public void Encrypt(byte[] data, out byte[] result)
     {
         if (data == null) throw new ArgumentNullException(nameof(data));
+        ResetState();
 
         byte[] padded = Padding.Add(data, _cipher.BlockSize, _padding);
 
@@ -54,6 +64,7 @@ public class CipherContext
         if (data == null) throw new ArgumentNullException(nameof(data));
         if (data.Length % _cipher.BlockSize != 0)
             throw new ArgumentException($"Длина данных {data.Length} не кратна размеру блока {_cipher.BlockSize}");
+        ResetState();
 
         byte[] decrypted = _mode switch
         {
@@ -67,7 +78,7 @@ public class CipherContext
             _ => throw new NotSupportedException()
         };
 
-        result = Padding.Remove(decrypted, _padding);
+        result = Padding.Remove(decrypted, _cipher.BlockSize, _padding);
     }
 
     public void Encrypt(string inputPath, string outputPath)
@@ -75,9 +86,63 @@ public class CipherContext
         if (inputPath == null) throw new ArgumentNullException(nameof(inputPath));
         if (outputPath == null) throw new ArgumentNullException(nameof(outputPath));
 
-        byte[] data = File.ReadAllBytes(inputPath);
-        Encrypt(data, out byte[] result);
-        File.WriteAllBytes(outputPath, result);
+        int blockSize = _cipher.BlockSize;
+        int bufferSize = blockSize * 4096;
+
+        ResetState();
+
+        using var input = new FileStream(inputPath, FileMode.Open, FileAccess.Read);
+        using var output = new FileStream(outputPath, FileMode.Create, FileAccess.Write);
+
+        byte[] buffer = new byte[bufferSize];
+        long fileLength = input.Length;
+        long totalRead = 0;
+
+        while (totalRead < fileLength)
+        {
+            int toRead = (int)Math.Min(bufferSize, fileLength - totalRead);
+            int read = input.Read(buffer, 0, toRead);
+            if (read == 0) break;
+            totalRead += read;
+
+            bool isLast = totalRead == fileLength;
+
+            if (!isLast)
+            {
+                byte[] chunk = new byte[read];
+                Buffer.BlockCopy(buffer, 0, chunk, 0, read);
+                byte[] enc = EncryptChunk(chunk);
+                output.Write(enc);
+            }
+            else
+            {
+                byte[] chunk = new byte[read];
+                Buffer.BlockCopy(buffer, 0, chunk, 0, read);
+                byte[] padded = Padding.Add(chunk, blockSize, _padding);
+                byte[] enc = EncryptChunk(padded);
+                output.Write(enc);
+            }
+        }
+
+        if (fileLength == 0)
+        {
+            byte[] padded = Padding.Add(Array.Empty<byte>(), blockSize, _padding);
+            output.Write(EncryptChunk(padded));
+        }
+    }
+    private byte[] EncryptChunk(byte[] data)
+    {
+        return _mode switch
+        {
+            CipherMode.ECB => EncryptEcb(data),
+            CipherMode.CBC => EncryptCbc(data),
+            CipherMode.PCBC => EncryptPcbc(data),
+            CipherMode.CFB => EncryptCfb(data),
+            CipherMode.OFB => EncryptOfb(data),
+            CipherMode.CTR => EncryptCtr(data),
+            CipherMode.RandomDelta => EncryptRd(data),
+            _ => throw new NotSupportedException()
+        };
     }
 
     public void Decrypt(string inputPath, string outputPath)
@@ -85,9 +150,59 @@ public class CipherContext
         if (inputPath == null) throw new ArgumentNullException(nameof(inputPath));
         if (outputPath == null) throw new ArgumentNullException(nameof(outputPath));
 
-        byte[] data = File.ReadAllBytes(inputPath);
-        Decrypt(data, out byte[] result);
-        File.WriteAllBytes(outputPath, result);
+        int blockSize = _cipher.BlockSize;
+        int bufferSize = blockSize * 4096;
+
+        ResetState();
+
+        using var input = new FileStream(inputPath, FileMode.Open, FileAccess.Read);
+        using var output = new FileStream(outputPath, FileMode.Create, FileAccess.Write);
+
+        byte[] buffer = new byte[bufferSize];
+        long fileLength = input.Length;
+        long totalRead = 0;
+
+        if (fileLength == 0 || fileLength % blockSize != 0)
+            throw new ArgumentException("Длина шифротекста должна быть кратна блоку");
+
+        while (totalRead < fileLength)
+        {
+            int toRead = (int)Math.Min(bufferSize, fileLength - totalRead);
+            int read = input.Read(buffer, 0, toRead);
+            if (read == 0) break;
+            totalRead += read;
+
+            bool isLast = totalRead == fileLength;
+
+            byte[] chunk = new byte[read];
+            Buffer.BlockCopy(buffer, 0, chunk, 0, read);
+            byte[] dec = DecryptChunk(chunk);
+
+            if (!isLast)
+            {
+                output.Write(dec);
+            }
+            else
+            {
+                byte[] unpadded = Padding.Remove(dec, blockSize, _padding);
+                output.Write(unpadded);
+            }
+        }
+    }
+
+    private byte[] DecryptChunk(byte[] data)
+    {
+        return _mode switch
+        {
+            CipherMode.ECB => DecryptEcb(data),
+            CipherMode.CBC => DecryptCbc(data),
+            CipherMode.PCBC => DecryptPcbc(data),
+            CipherMode.CFB => DecryptCfb(data),
+            CipherMode.OFB => DecryptOfb(data),
+            CipherMode.CTR => DecryptCtr(data),
+            CipherMode.RandomDelta => DecryptRd(data),
+            _ => throw new NotSupportedException()
+        };
     }
 
     private byte[] EncryptEcb(byte[] padded)
@@ -113,7 +228,7 @@ public class CipherContext
         int blockCount = padded.Length / blockSize;
         byte[] result = new byte[padded.Length];
 
-        byte[] prev = _iv!;
+        byte[] prev = _state ?? _iv!;
 
         for (int i = 0; i < blockCount; i++)
         {
@@ -127,7 +242,8 @@ public class CipherContext
 
             prev = encrypted;
         }
-        
+
+        _state = prev;
         return result;
     }
 
@@ -137,8 +253,8 @@ public class CipherContext
         int blockCount = padded.Length / blockSize;
         byte[] result = new byte[padded.Length];
 
-        byte[] prevCipher = _iv!;
-        byte[] prevMsg = new byte[blockSize];
+        byte[] prevCipher = _state ?? _iv!;
+        byte[] prevMsg = _statePrevPlain ?? new byte[blockSize];
 
         for (int i = 0; i < blockCount; i++)
         {
@@ -154,6 +270,9 @@ public class CipherContext
             prevCipher = encrypted;
             prevMsg = block;
         }
+
+        _state = prevCipher;
+        _statePrevPlain = prevMsg;
         return result;
     }
 
@@ -163,7 +282,7 @@ public class CipherContext
         int blockCount = padded.Length / blockSize;
         byte[] result = new byte[padded.Length];
 
-        byte[] prevCipher = _iv!;
+        byte[] prevCipher = _state ?? _iv!;
 
         for (int i = 0; i < blockCount; i++)
         {
@@ -177,6 +296,7 @@ public class CipherContext
             prevCipher = encrypted;
         }
 
+        _state = prevCipher;
         return result;
     }
 
@@ -186,7 +306,7 @@ public class CipherContext
         int blockCount = padded.Length / blockSize;
         byte[] result = new byte[padded.Length];
 
-        byte[] prevCipher = _iv!;
+        byte[] prevCipher = _state ?? _iv!;
 
         for (int i = 0; i < blockCount; i++)
         {
@@ -200,6 +320,7 @@ public class CipherContext
             prevCipher = encrypted1;
         }
 
+        _state = prevCipher;
         return result;
     }
 
@@ -215,7 +336,7 @@ public class CipherContext
 
         Parallel.For(0, blockCount, i =>
         {
-            byte[] counter = ComputeCounter(iv, delta, i);
+            byte[] counter = ComputeCounter(iv, delta, (int)_blocksProcessed + i);
             byte[] block = new byte[blockSize];
             Buffer.BlockCopy(padded, i * blockSize, block, 0, blockSize);
 
@@ -224,6 +345,7 @@ public class CipherContext
             Buffer.BlockCopy(encrypted, 0, result, i * blockSize, blockSize);
         });
 
+        _blocksProcessed += blockCount;
         return result;
     }
 
@@ -240,7 +362,7 @@ public class CipherContext
 
         Parallel.For(0, blockCount, i =>
         {
-            byte[] counter = ComputeCounter(iv, delta, i);
+            byte[] counter = ComputeCounter(iv, delta, (int)_blocksProcessed + i);
             byte[] block = new byte[blockSize];
             Buffer.BlockCopy(padded, i * blockSize, block, 0, blockSize);
 
@@ -249,6 +371,7 @@ public class CipherContext
             Buffer.BlockCopy(encrypted, 0, result, i * blockSize, blockSize);
         });
 
+        _blocksProcessed += blockCount;
         return result;
     }
 
@@ -302,7 +425,7 @@ public class CipherContext
         int blockCount = data.Length / blockSize;
         byte[] result = new byte[data.Length];
 
-        byte[] iv = _iv!;
+        byte[] iv = _state ?? _iv!;
 
         Parallel.For(0, blockCount, i =>
         {
@@ -318,6 +441,7 @@ public class CipherContext
             Buffer.BlockCopy(msg, 0, result, i * blockSize, blockSize);
         });
 
+        _state = data[(data.Length - blockSize)..];
         return result;
     }
 
@@ -327,8 +451,8 @@ public class CipherContext
         int blockCount = data.Length / blockSize;
         byte[] result = new byte[data.Length];
 
-        byte[] prevCipher = _iv!;
-        byte[] prevMsg = new byte[blockSize];
+        byte[] prevCipher = _state ?? _iv!;
+        byte[] prevMsg = _statePrevPlain ?? new byte[blockSize];
 
         for (int i = 0; i < blockCount; i++)
         {
@@ -346,6 +470,8 @@ public class CipherContext
             prevMsg = msg;
         }
 
+        _state = prevCipher;
+        _statePrevPlain = prevMsg;
         return result;
     }
 
@@ -355,7 +481,7 @@ public class CipherContext
         int blockCount = data.Length / blockSize;
         byte[] result = new byte[data.Length];
 
-        byte[] iv = _iv!;
+        byte[] iv = _state ?? _iv!;
 
         Parallel.For(0, blockCount, i =>
         {
@@ -371,6 +497,7 @@ public class CipherContext
             Buffer.BlockCopy(msg, 0, result, i * blockSize, blockSize);
         });
 
+        _state = data[(data.Length - blockSize)..];
         return result;
     }
 
@@ -380,7 +507,7 @@ public class CipherContext
         int blockCount = data.Length / blockSize;
         byte[] result = new byte[data.Length];
 
-        byte[] prevCipher = _iv!;
+        byte[] prevCipher = _state ?? _iv!;
 
         for (int i = 0; i < blockCount; i++)
         {
@@ -394,6 +521,7 @@ public class CipherContext
             prevCipher = encrypted;
         }
 
+        _state = prevCipher;
         return result;
     }
 

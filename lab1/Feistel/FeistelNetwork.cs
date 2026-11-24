@@ -13,8 +13,6 @@ public class FeistelNetwork
     {
         _keyExpander = keyExpander ?? throw new ArgumentNullException(nameof(keyExpander));
         _roundFunction = roundFunction ?? throw new ArgumentNullException(nameof(roundFunction));
-        _keyExpander = keyExpander;
-        _roundFunction = roundFunction;
     }
 
     public int BlockSize => _roundFunction.InputBlockSize * 2;
