@@ -1,5 +1,8 @@
 ﻿using System;
+using System.Numerics;
+using Lab2.PrimalityTests;
 using Lab2.NumberTheory;
+using Lab2.RSA;
 
 internal class Program
 {
@@ -35,5 +38,71 @@ internal class Program
 
         Console.WriteLine("\n=== Carmichael function ===");
         Console.WriteLine($"lambda(72) = {service.Carmichael(72)}");
+
+        DemonstratePrimalityTests();
+        DemonstrateRSA();
+    }
+
+    private static void DemonstratePrimalityTests()
+    {
+        IPrimalityTest fermat = new FermatTest();
+        IPrimalityTest solovay = new SolovayStrassenTest();
+        IPrimalityTest miller = new MillerRabinTest();
+
+        BigInteger[] numbers = {
+            -5, 0, 1, 2, 3, 4, 5, 7,
+            9, 15, 17, 21, 25, 41, 97,
+            341, 561, 1105, 1729, 7919,
+            BigInteger.Parse("2305843009213693951")
+        };
+
+        double probability = 0.9999;
+
+        Console.WriteLine("\n=== Primality tests ===");
+        Console.WriteLine($"Probability: {probability}");
+
+        Console.WriteLine($"{"Number",22} | {"Fermat",8} | " + $"{"Solovay",8} | {"Miller",8}");
+
+        Console.WriteLine(new string('-', 57));
+
+        foreach (BigInteger n in numbers)
+        {
+            bool f = fermat.IsPrime(n, probability);
+            bool s = solovay.IsPrime(n, probability);
+            bool m = miller.IsPrime(n, probability);
+
+            Console.WriteLine($"{n,22} | {f,8} | {s,8} | {m,8}");
+        }
+    }
+
+    private static void DemonstrateRSA()
+    {
+        Console.WriteLine("=== RSA ===");
+
+        var rsa = new RSAService(
+            RSAService.PrimalityTestType.MillerRabin,
+            0.99999,
+            32);
+
+        BigInteger message = 12345;
+
+        for (int i = 0; i < 2; i++)
+        {
+            var (n, e, d) = rsa.GenerateKeys();
+
+            Console.WriteLine($"\nKey pair #{i + 1}");
+            Console.WriteLine($"N = {n}");
+            Console.WriteLine($"E = {e}");
+            Console.WriteLine($"D = {d}");
+
+            BigInteger encrypted = rsa.Encrypt(message);
+            BigInteger decrypted = rsa.Decrypt(encrypted);
+
+            Console.WriteLine($"Message:   {message}");
+            Console.WriteLine($"Encrypted: {encrypted}");
+            Console.WriteLine($"Decrypted: {decrypted}");
+
+            Console.WriteLine($"Success: {message == decrypted}");
+        }
     }
 }
