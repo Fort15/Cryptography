@@ -3,6 +3,7 @@ using System.Numerics;
 using Lab2.PrimalityTests;
 using Lab2.NumberTheory;
 using Lab2.RSA;
+using Lab2.WienerAttack;
 
 internal class Program
 {
@@ -41,6 +42,7 @@ internal class Program
 
         DemonstratePrimalityTests();
         DemonstrateRSA();
+        DemonstrateWienerAttack();
     }
 
     private static void DemonstratePrimalityTests()
@@ -79,10 +81,7 @@ internal class Program
     {
         Console.WriteLine("=== RSA ===");
 
-        var rsa = new RSAService(
-            RSAService.PrimalityTestType.MillerRabin,
-            0.99999,
-            32);
+        var rsa = new RSAService(RSAService.PrimalityTestType.MillerRabin, 0.99999, 128);
 
         BigInteger message = 12345;
 
@@ -104,5 +103,58 @@ internal class Program
 
             Console.WriteLine($"Success: {message == decrypted}");
         }
+    }
+
+    private static void DemonstrateWienerAttack()
+    {
+        Console.WriteLine("\n=== Wiener attack ===");
+
+        var generator = new VulnerableKeyGenerator(0.99999, 32);
+        var attack = new WienerAttackService();
+
+        for (int i = 0; i < 3; i++)
+        {
+            var (n, e, d, phi) = generator.GenerateKeys();
+
+            Console.WriteLine($"\n=== Vulnerable RSA key #{i + 1} ===");
+
+            Console.WriteLine($"N = {n}");
+            Console.WriteLine($"E = {e}");
+            Console.WriteLine($"D = {d}");
+            Console.WriteLine($"Phi = {phi}");
+
+            var (recoveredD, recoveredPhi, convergents) =
+                attack.Attack(e, n);
+
+            Console.WriteLine("\nConvergents:");
+
+            foreach (var (numerator, denominator) in convergents)
+            {
+                Console.WriteLine($"{numerator}/{denominator}");
+            }
+
+            Console.WriteLine($"\nRecovered D = {recoveredD}");
+            Console.WriteLine($"Recovered Phi = {recoveredPhi}");
+
+            Console.WriteLine($"D match: {d == recoveredD}");
+            Console.WriteLine($"Phi match: {phi == recoveredPhi}");
+
+            Console.WriteLine($"Attack success: " + $"{d == recoveredD && phi == recoveredPhi}");
+        }
+
+        Console.WriteLine("\n=== Protected RSA key ===");
+
+        var rsa = new RSAService(RSAService.PrimalityTestType.MillerRabin, 0.99999, 128);
+
+        var (safeN, safeE, safeD) = rsa.GenerateKeys();
+
+        Console.WriteLine($"N = {safeN}");
+        Console.WriteLine($"E = {safeE}");
+        Console.WriteLine($"D = {safeD}");
+
+        var (foundD, foundPhi, safeConvergents) = attack.Attack(safeE, safeN);
+
+        Console.WriteLine($"Convergents count: {safeConvergents.Count}");
+        Console.WriteLine($"Attack success: {foundD != null}");
     }
 }

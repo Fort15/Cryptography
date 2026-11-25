@@ -62,7 +62,7 @@ public sealed class RSAService
             if (!(probability >= 0.5 && probability < 1.0))
                 throw new ArgumentException("Probability must be in [0.5, 1).", nameof(probability));
 
-            if (bitLength < 16) throw new ArgumentException("Bit length must be at least 16.", nameof(bitLength));
+            if (bitLength < 128) throw new ArgumentException("Bit length must be at least 128.", nameof(bitLength));
 
             _probability = probability;
             _bitLength = bitLength;
